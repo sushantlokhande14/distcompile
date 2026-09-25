@@ -80,9 +80,42 @@ class CoordinatorService final : public Coordinator::Service {
     reaper_ = std::thread([this] { reap_loop(); });
   }
 
+  // A database hiccup (Postgres restarting, a dropped connection) must not
+  // escape a gRPC handler: an exception there takes the whole coordinator
+  // down. It's reported as UNAVAILABLE instead, which clients and workers
+  // already retry with backoff.
+  template <class Fn>
+  static Status guarded(const char* rpc, Fn&& fn) {
+    try {
+      return fn();
+    } catch (const std::exception& e) {
+      stats().add(std::string("error.") + rpc, 0);
+      return Status(StatusCode::UNAVAILABLE, std::string(rpc) + ": " + e.what());
+    }
+  }
+
+  Status CheckCache(ServerContext* x, const KeyList* q, KeyList* r) override {
+    return guarded("CheckCache", [&] { return check_cache(x, q, r); });
+  }
+  Status SubmitBuild(ServerContext* x, const BuildSpec* q, SubmitReply* r) override {
+    return guarded("SubmitBuild", [&] { return submit_build(x, q, r); });
+  }
+  Status GetBuild(ServerContext* x, const BuildRef* q, BuildStatus* r) override {
+    return guarded("GetBuild", [&] { return get_build(x, q, r); });
+  }
+  Status RegisterWorker(ServerContext* x, const WorkerInfo* q, Empty* r) override {
+    return guarded("RegisterWorker", [&] { return register_worker(x, q, r); });
+  }
+  Status Heartbeat(ServerContext* x, const WorkerInfo* q, Empty* r) override {
+    return guarded("Heartbeat", [&] { return heartbeat(x, q, r); });
+  }
+  Status ClaimTask(ServerContext* x, const ClaimRequest* q, ClaimReply* r) override {
+    return guarded("ClaimTask", [&] { return claim_task(x, q, r); });
+  }
+
   // ---- client side ---------------------------------------------------------
 
-  Status CheckCache(ServerContext*, const KeyList* req, KeyList* rep) override {
+  Status check_cache(ServerContext*, const KeyList* req, KeyList* rep) {
     Timer t("rpc.CheckCache", (int64_t)req->ByteSizeLong());
     std::vector<std::string> keys(req->keys().begin(), req->keys().end());
     auto c = pool_.get();
@@ -117,7 +150,7 @@ class CoordinatorService final : public Coordinator::Service {
     return Status::OK;
   }
 
-  Status SubmitBuild(ServerContext*, const BuildSpec* spec, SubmitReply* rep) override {
+  Status submit_build(ServerContext*, const BuildSpec* spec, SubmitReply* rep) {
     Timer t("rpc.SubmitBuild", (int64_t)spec->ByteSizeLong());
     std::vector<GraphTask> g;
     for (const auto& ts : spec->tasks()) {
@@ -134,14 +167,16 @@ class CoordinatorService final : public Coordinator::Service {
     try {
       int64_t build = transaction(pool_, [&](Conn& c) { return submit(c, *spec, order, rank, part, rep); });
       rep->set_build_id(build);
+    } catch (const DbError&) {
+      throw;  // transient: guarded() turns it into UNAVAILABLE
     } catch (const std::exception& e) {
-      return Status(StatusCode::FAILED_PRECONDITION, e.what());
+      return Status(StatusCode::FAILED_PRECONDITION, e.what());  // e.g. an input wasn't uploaded
     }
     wake_workers();
     return Status::OK;
   }
 
-  Status GetBuild(ServerContext*, const BuildRef* req, BuildStatus* rep) override {
+  Status get_build(ServerContext*, const BuildRef* req, BuildStatus* rep) {
     Timer t("rpc.GetBuild");
     auto c = pool_.get();
     std::string id = std::to_string(req->build_id());
@@ -194,7 +229,7 @@ class CoordinatorService final : public Coordinator::Service {
 
   // ---- worker side ---------------------------------------------------------
 
-  Status RegisterWorker(ServerContext*, const WorkerInfo* w, Empty*) override {
+  Status register_worker(ServerContext*, const WorkerInfo* w, Empty*) {
     auto c = pool_.get();
     auto r = c->exec("register",
                      "INSERT INTO workers (id, toolchain, slots, part) "
@@ -209,7 +244,7 @@ class CoordinatorService final : public Coordinator::Service {
     return Status::OK;
   }
 
-  Status Heartbeat(ServerContext*, const WorkerInfo* w, Empty*) override {
+  Status heartbeat(ServerContext*, const WorkerInfo* w, Empty*) {
     auto c = pool_.get();
     c->exec("heartbeat",
             "UPDATE tasks SET lease_until = now() + make_interval(secs => $2) "
@@ -221,7 +256,7 @@ class CoordinatorService final : public Coordinator::Service {
 
   // Long-polls: if nothing is ready, wait (up to wait_ms) for a wake-up and
   // look again, instead of making idle workers hammer the database.
-  Status ClaimTask(ServerContext* ctx, const ClaimRequest* req, ClaimReply* rep) override {
+  Status claim_task(ServerContext* ctx, const ClaimRequest* req, ClaimReply* rep) {
     double deadline = now_ms() + std::min(std::max(req->wait_ms(), 0), 10000);
     int part = partition_of(req->worker());
     for (;;) {
@@ -285,7 +320,7 @@ class CoordinatorService final : public Coordinator::Service {
       rep->set_accepted(accepted);
       if (!accepted) stats().add("sched.duplicate_completion", 0);
     } catch (const std::exception& e) {
-      return Status(StatusCode::INTERNAL, e.what());
+      return Status(StatusCode::UNAVAILABLE, e.what());  // the worker retries; completing twice is harmless
     }
     wake_workers();
     return Status::OK;

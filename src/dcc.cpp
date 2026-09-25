@@ -28,6 +28,7 @@ struct Options {
   std::string out = "out";
   std::string json;
   int jobs = 0;
+  int partitions = 0;  // 0: coordinator picks (one per live worker)
   bool stats = false;
 };
 
@@ -244,6 +245,7 @@ int build(const Options& o) {
   // 4. the graph: compile -> archive -> link
   BuildSpec spec;
   spec.set_toolchain(toolchain);
+  spec.set_partitions(o.partitions);
   std::map<std::string, int> task_of_key;  // identical units compile once
   std::vector<int> unit_task(units.size());
   for (size_t i = 0; i < units.size(); i++) {
@@ -439,6 +441,7 @@ int main(int argc, char** argv) {
     else if (a == "--coordinator") o.addr = next();
     else if (a == "--out") o.out = next();
     else if (a == "-j") o.jobs = std::atoi(next().c_str());
+    else if (a == "--partitions") o.partitions = std::atoi(next().c_str());
     else if (a == "--stats") o.stats = true;
     else if (a == "--json") o.json = next();
     else if (o.cmd.empty() && a[0] != '-') o.cmd = a;
@@ -457,6 +460,7 @@ int main(int argc, char** argv) {
   }
   std::fprintf(stderr,
                "usage: dcc build [-C dir] [--coordinator host:port] [-j N] [--out dir] [--stats] [--json file]\n"
+               "                 [--partitions N]   (1 = no locality grouping, for comparison)\n"
                "       dcc stats [--coordinator host:port]\n");
   return 1;
 }
