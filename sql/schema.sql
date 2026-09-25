@@ -65,3 +65,8 @@ CREATE TABLE IF NOT EXISTS workers (
   part      INT NOT NULL,
   last_seen TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- added after the first version; ALTER keeps existing databases working
+-- a task isn't handed straight back to the worker that just failed it
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS last_failed_by TEXT;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS ready_at TIMESTAMPTZ;

@@ -266,7 +266,7 @@ class CoordinatorService final : public Coordinator::Service {
         if (r->retryable()) {
           auto row = c.exec("retry",
                             "UPDATE tasks SET state = CASE WHEN attempts >= $3 THEN 'failed' ELSE 'ready' END, "
-                            "lease_owner = NULL, log = $4 "
+                            "lease_owner = NULL, last_failed_by = lease_owner, ready_at = now(), log = $4 "
                             "WHERE uid = $1 AND state = 'running' AND attempts = $2 RETURNING build_id, state",
                             {uid, std::to_string(r->attempt()), std::to_string(o_.max_attempts), r->log()});
           if (row.size() == 0) return false;
@@ -479,10 +479,16 @@ class CoordinatorService final : public Coordinator::Service {
     // (stealing). Each is an index scan on a partial index. The first version
     // did it in one query with ORDER BY (part = $3) DESC, which no index can
     // serve, so every claim sorted every ready task.
+    //
+    // A task that just failed on this worker is left alone for 3 s. Without
+    // that, a broken worker that fails instantly re-claims its own failure
+    // before anyone else can, and burns all the attempts (CI caught this on a
+    // 2-core runner). After 3 s it's fair game, so a one-worker setup still works.
     const char* kClaim =
         "UPDATE tasks SET state = 'running', lease_owner = $1, attempts = attempts + 1, "
         "lease_until = now() + make_interval(secs => $4) "
         "WHERE uid = (SELECT uid FROM tasks WHERE state = 'ready' AND toolchain = $2 %s "
+        "               AND (last_failed_by IS DISTINCT FROM $1 OR ready_at < now() - interval '3 seconds') "
         "             ORDER BY priority DESC LIMIT 1 FOR UPDATE SKIP LOCKED) "
         "RETURNING uid, attempts, kind, name, coalesce(inputs, input), coalesce(input_names, 'in.i'), args";
     char own[1024], any[1024];
@@ -518,7 +524,7 @@ class CoordinatorService final : public Coordinator::Service {
         auto c = pool_.get();
         auto r = c->exec("reap",
                          "UPDATE tasks SET state = CASE WHEN attempts >= $1 THEN 'failed' ELSE 'ready' END, "
-                         "lease_owner = NULL, "
+                         "lease_owner = NULL, last_failed_by = lease_owner, ready_at = now(), "
                          "log = CASE WHEN attempts >= $1 THEN 'gave up: lease expired ' || attempts || ' times' "
                          "ELSE log END "
                          "WHERE state = 'running' AND lease_until < now() RETURNING build_id, state",
