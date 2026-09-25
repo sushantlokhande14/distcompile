@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: distcompile
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 20
+    env:
+      DC_COORDINATOR: localhost:7070
+      DC_PSQL: host=localhost dbname=distcompile user=postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build libgrpc++-dev protobuf-compiler-grpc \
+            libprotobuf-dev protobuf-compiler libpq-dev libssl-dev postgresql-client
+      - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build
+      - run: ./build/unit_tests
+      - name: start coordinator + 3 workers
+        run: |
+          mkdir -p /tmp/dc
+          ./build/dc-coordinator --listen 0.0.0.0:7070 --cas /tmp/dc/cas --lease 3 --db "$DC_PSQL" \
+            > /tmp/dc/coordinator.log 2>&1 &
+          for i in 1 2 3; do
+            ./build/dc-worker --coordinator localhost:7070 --id w$i --cache /tmp/dc/cache-w$i > /tmp/dc/w$i.log 2>&1 &
+          done
+          sleep 3
+      - name: e2e
+        run: PATH=$PWD/build:$PATH bash tests/e2e.sh
+      - name: coordinator profile
+        if: always()
+        run: ./build/dcc stats || true
+      - name: logs
+        if: failure()
+        run: tail -n 60 /tmp/dc/*.log
