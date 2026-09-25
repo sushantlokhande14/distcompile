@@ -1,0 +1,8 @@
+# a tiny project: two static libraries and a program that uses both
+cc      gcc
+cflags  -O2 -Wall -Iinclude
+ldflags -lm
+
+lib mathx src/mathx/*.c
+lib strx  src/strx/*.c
+bin calc  src/main.c : mathx strx

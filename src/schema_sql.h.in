@@ -1,0 +1,3 @@
+// generated from sql/schema.sql by CMake
+#pragma once
+static const char* kSchemaSql = R"SQL(@SCHEMA_SQL@)SQL";

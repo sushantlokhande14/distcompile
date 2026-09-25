@@ -1,0 +1,44 @@
+# Local cluster: postgres + coordinator + 3 workers.
+#   docker compose up -d --build
+#   docker compose run --rm client dcc build -C examples/calc
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: distcompile
+      POSTGRES_HOST_AUTH_METHOD: trust  # local testbed only
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 1s
+      retries: 30
+
+  coordinator:
+    build: .
+    image: distcompile:local
+    command: >
+      dc-coordinator --listen 0.0.0.0:7070 --cas /data/cas
+      --db "host=postgres dbname=distcompile user=postgres" ${COORDINATOR_ARGS:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports: ["7070:7070"]
+    volumes: [cas:/data]
+
+  worker:
+    image: distcompile:local
+    command: dc-worker --coordinator coordinator:7070 --slots 2 ${WORKER_ARGS:-}
+    depends_on: [coordinator]
+    deploy:
+      replicas: 3
+
+  client:
+    image: distcompile:local
+    profiles: [client]
+    environment:
+      DC_COORDINATOR: coordinator:7070
+      DC_PSQL: host=postgres dbname=distcompile user=postgres
+    volumes:
+      - .:/work   # the whole checkout: examples/, tools/, tests/, bench/
+
+volumes:
+  cas: {}

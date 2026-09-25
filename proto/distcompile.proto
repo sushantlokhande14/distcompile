@@ -1,0 +1,142 @@
+syntax = "proto3";
+
+package dc;
+
+// One coordinator, many workers, any number of clients.
+// Blobs (preprocessed sources, objects, archives, binaries) are addressed by
+// the sha256 of their bytes everywhere.
+service Coordinator {
+  // client side
+  rpc CheckCache(KeyList) returns (KeyList);            // which cache keys already have a result
+  rpc FindMissing(DigestList) returns (DigestList);     // which blobs the coordinator doesn't have
+  rpc PutBlobs(BlobBatch) returns (PutReply);
+  rpc GetBlob(Digest) returns (Blob);
+  rpc SubmitBuild(BuildSpec) returns (SubmitReply);
+  rpc GetBuild(BuildRef) returns (BuildStatus);
+  rpc GetStats(Empty) returns (StatsReply);
+
+  // worker side
+  rpc RegisterWorker(WorkerInfo) returns (Empty);
+  rpc ClaimTask(ClaimRequest) returns (ClaimReply);     // long-polls briefly when idle
+  rpc Heartbeat(WorkerInfo) returns (Empty);            // extends leases of running tasks
+  rpc CompleteTask(TaskResult) returns (CompleteReply);
+}
+
+message Empty {}
+
+message Digest { string hash = 1; }
+message DigestList { repeated string hashes = 1; }
+message KeyList { repeated string keys = 1; }
+
+message Blob {
+  string hash = 1;
+  bytes data = 2;
+}
+message BlobBatch { repeated Blob blobs = 1; }
+message PutReply { int64 stored = 1; int64 bytes = 2; }
+
+enum TaskKind {
+  COMPILE = 0;  // preprocessed source -> object
+  ARCHIVE = 1;  // objects -> static library
+  LINK = 2;     // objects + libraries -> executable
+}
+
+message TaskSpec {
+  int32 id = 1;                 // index inside the build
+  TaskKind kind = 2;
+  string name = 3;              // output name, e.g. "obj/src/main.o", "libm.a", "calc"
+  repeated int32 deps = 4;      // ids of tasks whose outputs are inputs to this one
+  string key = 5;               // COMPILE: cache key computed by the client; others: computed by the coordinator
+  string input = 6;             // COMPILE: digest of the preprocessed source
+  repeated string args = 7;     // extra compiler/linker flags
+  int64 cost = 8;               // rough cost estimate (preprocessed bytes), used for priorities
+}
+
+message BuildSpec {
+  string toolchain = 1;         // e.g. "gcc 13.3.0 x86_64-linux-gnu": workers must match
+  repeated TaskSpec tasks = 2;
+  int32 partitions = 3;         // 0 = one per live worker
+}
+
+message SubmitReply {
+  int64 build_id = 1;
+  int32 cached = 2;             // tasks already satisfied from the cache at submit time
+}
+
+message BuildRef {
+  int64 build_id = 1;
+  bool full = 2;                // false: just the counts (cheap enough to poll)
+}
+
+message TaskState {
+  int32 id = 1;
+  string state = 2;             // waiting, ready, running, done, cached, failed
+  string output = 3;            // digest of the output blob when done/cached
+  string worker = 4;
+  int32 attempts = 5;
+  string log = 6;               // compiler output on failure
+  double exec_ms = 7;
+}
+
+message BuildStatus {
+  int64 build_id = 1;
+  string state = 2;             // running, done, failed
+  repeated TaskState tasks = 3; // only when full
+  int32 total = 4;
+  int32 finished = 5;           // done + cached
+  int32 cached = 6;
+  int32 running = 7;
+}
+
+message WorkerInfo {
+  string id = 1;
+  string toolchain = 2;
+  int32 slots = 3;
+}
+
+message ClaimRequest {
+  string worker = 1;
+  string toolchain = 2;
+  int32 wait_ms = 3;
+}
+
+message Assignment {
+  int64 task_uid = 1;           // row id in the tasks table
+  int32 attempt = 2;            // must be echoed back in TaskResult
+  TaskKind kind = 3;
+  string name = 4;
+  repeated string inputs = 5;   // digests to fetch
+  repeated string input_names = 6;
+  repeated string args = 7;
+}
+
+message ClaimReply {
+  bool found = 1;               // false: nothing to do right now
+  Assignment task = 2;
+}
+
+message TaskResult {
+  int64 task_uid = 1;
+  int32 attempt = 2;
+  string worker = 3;
+  bool ok = 4;
+  bool retryable = 5;           // infrastructure trouble, not a compile error
+  string output = 6;            // digest, already uploaded with PutBlobs
+  string log = 7;
+  double exec_ms = 8;
+  double fetch_ms = 9;
+  double upload_ms = 10;
+}
+
+message CompleteReply {
+  bool accepted = 1;            // false: someone else already finished it (harmless)
+}
+
+message Stat {
+  string name = 1;
+  int64 count = 2;
+  double total_ms = 3;
+  int64 bytes = 4;
+}
+
+message StatsReply { repeated Stat stats = 1; }
