@@ -1,0 +1,18 @@
+dcc: 2001 units, 2001 preprocessed, 0 reused unchanged
+     2010 tasks: 0 from cache, ran 2001 compile / 8 archive / 1 link on 3 worker(s)
+     uploaded 2001 blobs (62837.0 KB), downloaded 5320.4 KB
+     keys 6415 ms, upload 235 ms, remote 14948 ms, fetch 233 ms, total 21928 ms
+  db.claim                           2431      5394.5      2.219            0
+  db.commit                          2011      2529.1      1.258            0
+  db.dependents                      2010       889.7      0.443            0
+  db.insert_dep                      2009       195.3      0.097            0
+  db.insert_task                     2010       322.1      0.160            0
+  db.progress                        2011      2070.5      1.030            0
+  rpc.CompleteTask                   2010      8034.3      3.997       233033
+  rpc.GetBuild                        137       646.0      4.715            0
+  rpc.SubmitBuild                       1       539.2    539.173       399358
+  sched.claim                        2431      5435.0      2.236            0
+  sched.claimed.archive                 8         0.0      0.000            0
+  sched.claimed.compile              2001         0.0      0.000            0
+  sched.claimed.link                    1         0.0      0.000            0
+  worker.exec                        2010     65013.6     32.345            0

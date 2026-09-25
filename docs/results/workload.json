@@ -1,0 +1,221 @@
+{
+  "summary": {
+    "units": 121,
+    "steps": 20,
+    "make_compiles": 1235,
+    "dcc_compiles": 194,
+    "reduction": 0.8429
+  },
+  "steps": [
+    {
+      "step": "initial clean build",
+      "make": 121,
+      "make_s": 3.5,
+      "dcc": 121,
+      "dcc_pre": 121,
+      "dcc_cached": 0,
+      "dcc_s": 1.41,
+      "checksum": "checksum 554339597"
+    },
+    {
+      "step": "edit one .c file",
+      "make": 1,
+      "make_s": 2.83,
+      "dcc": 1,
+      "dcc_pre": 1,
+      "dcc_cached": 123,
+      "dcc_s": 0.26,
+      "checksum": "checksum 554339597"
+    },
+    {
+      "step": "add a declaration to a library header",
+      "make": 31,
+      "make_s": 2.44,
+      "dcc": 31,
+      "dcc_pre": 31,
+      "dcc_cached": 95,
+      "dcc_s": 0.46,
+      "checksum": "checksum 554339597"
+    },
+    {
+      "step": "comment-only edit in a .c file",
+      "make": 1,
+      "make_s": 2.13,
+      "dcc": 0,
+      "dcc_pre": 1,
+      "dcc_cached": 126,
+      "dcc_s": 0.13,
+      "checksum": "checksum 554339597"
+    },
+    {
+      "step": "comment-only edit in common.h",
+      "make": 121,
+      "make_s": 3.62,
+      "dcc": 0,
+      "dcc_pre": 121,
+      "dcc_cached": 126,
+      "dcc_s": 0.44,
+      "checksum": "checksum 554339597"
+    },
+    {
+      "step": "revert the library header",
+      "make": 31,
+      "make_s": 2.39,
+      "dcc": 0,
+      "dcc_pre": 31,
+      "dcc_cached": 126,
+      "dcc_s": 0.27,
+      "checksum": "checksum 554339597"
+    },
+    {
+      "step": "switch to feature branch",
+      "make": 121,
+      "make_s": 3.56,
+      "dcc": 34,
+      "dcc_pre": 121,
+      "dcc_cached": 88,
+      "dcc_s": 0.81,
+      "checksum": "checksum 751931759"
+    },
+    {
+      "step": "edit two files on the branch",
+      "make": 2,
+      "make_s": 5.32,
+      "dcc": 2,
+      "dcc_pre": 2,
+      "dcc_cached": 121,
+      "dcc_s": 0.28,
+      "checksum": "checksum 873277029"
+    },
+    {
+      "step": "switch back to main",
+      "make": 36,
+      "make_s": 2.44,
+      "dcc": 0,
+      "dcc_pre": 36,
+      "dcc_cached": 126,
+      "dcc_s": 0.26,
+      "checksum": "checksum 554339597"
+    },
+    {
+      "step": "switch to feature again",
+      "make": 36,
+      "make_s": 2.48,
+      "dcc": 0,
+      "dcc_pre": 36,
+      "dcc_cached": 126,
+      "dcc_s": 0.26,
+      "checksum": "checksum 873277029"
+    },
+    {
+      "step": "touch every file (fresh checkout / restored CI cache)",
+      "make": 121,
+      "make_s": 3.57,
+      "dcc": 0,
+      "dcc_pre": 121,
+      "dcc_cached": 126,
+      "dcc_s": 0.43,
+      "checksum": "checksum 873277029"
+    },
+    {
+      "step": "clean build on a new machine",
+      "make": 121,
+      "make_s": 2.7,
+      "dcc": 0,
+      "dcc_pre": 121,
+      "dcc_cached": 126,
+      "dcc_s": 0.42,
+      "checksum": "checksum 873277029"
+    },
+    {
+      "step": "edit one .c file",
+      "make": 1,
+      "make_s": 2.14,
+      "dcc": 1,
+      "dcc_pre": 1,
+      "dcc_cached": 123,
+      "dcc_s": 0.26,
+      "checksum": "checksum 860515336"
+    },
+    {
+      "step": "unused macro added to common.h",
+      "make": 121,
+      "make_s": 3.56,
+      "dcc": 0,
+      "dcc_pre": 121,
+      "dcc_cached": 126,
+      "dcc_s": 0.47,
+      "checksum": "checksum 860515336"
+    },
+    {
+      "step": "declaration added to common.h",
+      "make": 121,
+      "make_s": 3.55,
+      "dcc": 121,
+      "dcc_pre": 121,
+      "dcc_cached": 5,
+      "dcc_s": 1.18,
+      "checksum": "checksum 860515336"
+    },
+    {
+      "step": "revert common.h",
+      "make": 121,
+      "make_s": 7.08,
+      "dcc": 0,
+      "dcc_pre": 121,
+      "dcc_cached": 126,
+      "dcc_s": 0.45,
+      "checksum": "checksum 860515336"
+    },
+    {
+      "step": "edit three .c files",
+      "make": 3,
+      "make_s": 2.15,
+      "dcc": 3,
+      "dcc_pre": 3,
+      "dcc_cached": 119,
+      "dcc_s": 0.29,
+      "checksum": "checksum 214102254"
+    },
+    {
+      "step": "revert those three",
+      "make": 3,
+      "make_s": 2.04,
+      "dcc": 0,
+      "dcc_pre": 3,
+      "dcc_cached": 126,
+      "dcc_s": 0.18,
+      "checksum": "checksum 860515336"
+    },
+    {
+      "step": "edit one .c file",
+      "make": 1,
+      "make_s": 2.12,
+      "dcc": 1,
+      "dcc_pre": 1,
+      "dcc_cached": 123,
+      "dcc_s": 0.26,
+      "checksum": "checksum 860515336"
+    },
+    {
+      "step": "switch to main",
+      "make": 121,
+      "make_s": 3.47,
+      "dcc": 0,
+      "dcc_pre": 121,
+      "dcc_cached": 126,
+      "dcc_s": 0.47,
+      "checksum": "checksum 554339597"
+    },
+    {
+      "step": "clean build on a new machine",
+      "make": 121,
+      "make_s": 3.14,
+      "dcc": 0,
+      "dcc_pre": 121,
+      "dcc_cached": 126,
+      "dcc_s": 0.54,
+      "checksum": "checksum 554339597"
+    }
+  ]
+}
